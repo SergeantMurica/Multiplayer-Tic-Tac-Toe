@@ -9,7 +9,7 @@ let ws;
 let currentPlayer = null;
 let gameOver = false;
 
-searchButton.addEventListener("click", (e) => {
+searchButton.addEventListener("click", () => {
     if (ws) {
         ws.close();
     }
