@@ -1,0 +1,116 @@
+/* General Styles */
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    font-family: "Fira Code", monospace;
+    background: #1e1e1e;
+    color: #d4d4d4;
+}
+
+#container {
+    text-align: center;
+    background: #252526;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    width: 350px;
+}
+
+#header, #footer {
+    font-size: 1.2rem;
+    margin-bottom: 15px;
+    color: #569cd6;
+}
+
+#board {
+    display: grid;
+    grid-template-rows: repeat(3, 100px);
+    grid-template-columns: repeat(3, 100px);
+    gap: 10px;
+    margin: 35px auto;
+    padding: 15px;
+}
+
+.cell {
+    width: 100px;
+    height: 100px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 2rem;
+    color: #ffffff;
+    border: 1px solid #3c3c3c;
+    background: #2d2d2d;
+    cursor: pointer;
+    transition: background 0.3s ease, transform 0.2s ease;
+}
+
+.cell:hover {
+    background: #3f3f46;
+    transform: scale(1.05);
+}
+
+/* Messages and Buttons */
+#message, #turn-announcement {
+    margin: 20px auto;
+    font-size: 1rem;
+    color: #9cdcfe;
+}
+
+.highlight {
+    animation: glow 1.5s infinite alternate;
+    background: rgba(255, 255, 0, 0.8) !important;
+    border-color: gold;
+}
+
+@keyframes glow {
+    0% {
+        box-shadow: 0 0 5px rgba(255, 255, 0, 0.5);
+    }
+    100% {
+        box-shadow: 0 0 20px rgba(255, 255, 0, 1);
+    }
+}
+
+button {
+    padding: 10px 20px;
+    font-size: 1rem;
+    border: 1px solid #3c3c3c;
+    outline: none;
+    border-radius: 5px;
+    background: #007acc;
+    color: white;
+    cursor: pointer;
+    transition: background 0.3s ease, transform 0.2s ease;
+}
+
+button:hover {
+    background: #005f99;
+    transform: scale(1.05);
+}
+
+button:active {
+    background: #004d80;
+}
+
+/* Restart Button */
+#restart-button {
+    margin: 20px auto 40px auto;
+}
+
+/* Responsive */
+@media (max-width: 500px) {
+    #board {
+        grid-template-rows: repeat(3, 80px);
+        grid-template-columns: repeat(3, 80px);
+    }
+
+    .cell {
+        width: 80px;
+        height: 80px;
+        font-size: 1.5rem;
+    }
+}
