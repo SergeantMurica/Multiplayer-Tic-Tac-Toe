@@ -13,7 +13,7 @@ searchButton.addEventListener("click", () => {
     if (ws) {
         ws.close();
     }
-    ws = new WebSocket("ws://localhost:3000");
+    ws = new WebSocket("wss://multiplayer-tic-tac-toe-delta.vercel.app");
     clearBoard();
     searchButton.style.display = "none";
     message.textContent = "Searching for an opponent...";
