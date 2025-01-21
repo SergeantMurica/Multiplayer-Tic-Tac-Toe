@@ -1,109 +1,92 @@
-const express = require('express');
-const http = require('http');
-const WebSocket = require('ws');
-const path = require('path');
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+const io = new Server(server);
 
-let waitingPlayers = [];
-let games = [];
+let games = []; // Store game states for multiple matches
 
-app.use(express.static(path.join(__dirname, 'public')));
+io.on("connection", (socket) => {
+    console.log("A user connected:", socket.id);
 
-wss.on('connection', (ws) => {
-    waitingPlayers.push(ws);
+    // Handle new game search
+    socket.on("search", () => {
+        const game = findOrCreateGame(socket);
+        socket.emit("start", { currentPlayer: game.currentPlayer });
+        io.to(game.room).emit("update", { board: game.board });
+    });
 
-    if (waitingPlayers.length >= 2) {
-        const playerOne = waitingPlayers.shift();
-        const playerTwo = waitingPlayers.shift();
-        const game = {
-            players: [playerOne, playerTwo],
-            board: Array(9).fill(null),
-            currentPlayer: Math.random() < 0.5 ? playerOne : playerTwo,
-            winner: null,
-            gameOver: false,
-        };
-        games.push(game);
-
-        game.players.forEach(player => player.send(JSON.stringify({
-            type: "start",
-            currentPlayer: game.currentPlayer === player
-        })));
-    }
-
-    ws.on('message', (message) => {
-        const data = JSON.parse(message);
-        const game = games.find(g => g.players.includes(ws));
-
-        if (data.type === "move" && game && !game.gameOver) {
-            if (game.currentPlayer === ws && game.board[data.index] === null) {
-                game.board[data.index] = game.currentPlayer === game.players[0] ? "X" : "O";
-                game.currentPlayer = game.currentPlayer === game.players[0] ? game.players[1] : game.players[0];
-                game.players.forEach(player => player.send(JSON.stringify({
-                    type: "move",
-                    board: game.board,
-                    currentPlayer: game.currentPlayer === player
-                })));
-
-                checkWinner(game);
-            }
-        } else if (data.type === "restart" && game) {
-            game.board = Array(9).fill(null);
-            game.currentPlayer = Math.random() < 0.5 ? game.players[0] : game.players[1];
-            game.winner = null;
-            game.gameOver = false;
-            game.players.forEach(player => player.send(JSON.stringify({
-                type: "restart",
-                currentPlayer: game.currentPlayer === player
-            })));
+    // Handle moves
+    socket.on("move", ({ index }) => {
+        const game = getGameBySocket(socket);
+        if (game && !game.gameOver && game.board[index] === null) {
+            game.board[index] = game.currentPlayer ? "X" : "O";
+            game.currentPlayer = !game.currentPlayer;
+            io.to(game.room).emit("update", { board: game.board });
+            checkWinner(game);
         }
     });
 
-    ws.on("close", () => {
-        const game = games.find(g => g.players.includes(ws));
+    // Handle restart
+    socket.on("restart", () => {
+        const game = getGameBySocket(socket);
         if (game) {
-            const opponent = game.players.find(player => player !== ws);
-            if (opponent) {
-                opponent.send(JSON.stringify({ type: "disconnect" }));
-            }
-            games = games.filter(g => g !== game);
+            game.board = Array(9).fill(null);
+            game.gameOver = false;
+            game.currentPlayer = true;
+            io.to(game.room).emit("restart", { board: game.board });
         }
-        waitingPlayers = waitingPlayers.filter(player => player !== ws);
+    });
+
+    // Handle disconnect
+    socket.on("disconnect", () => {
+        const game = getGameBySocket(socket);
+        if (game) {
+            game.players = game.players.filter((player) => player !== socket.id);
+            io.to(game.room).emit("disconnect", { message: "Opponent disconnected" });
+            if (game.players.length === 0) {
+                games = games.filter((g) => g.room !== game.room);
+            }
+        }
     });
 });
 
+function findOrCreateGame(socket) {
+    let game = games.find((g) => g.players.length === 1);
+    if (!game) {
+        game = { room: `room-${Date.now()}`, players: [], board: Array(9).fill(null), currentPlayer: true, gameOver: false };
+        games.push(game);
+    }
+    game.players.push(socket.id);
+    socket.join(game.room);
+    return game;
+}
+
+function getGameBySocket(socket) {
+    return games.find((g) => g.players.includes(socket.id));
+}
 
 function checkWinner(game) {
     const winCombos = [
         [0, 1, 2], [3, 4, 5], [6, 7, 8],
         [0, 3, 6], [1, 4, 7], [2, 5, 8],
-        [0, 4, 8], [2, 4, 6]
+        [0, 4, 8], [2, 4, 6],
     ];
-
-    for (let combo of winCombos) {
+    for (const combo of winCombos) {
         const [a, b, c] = combo;
         if (game.board[a] && game.board[a] === game.board[b] && game.board[a] === game.board[c]) {
-            game.winner = game.board[a];
             game.gameOver = true;
-            game.players.forEach(player => player.send(JSON.stringify({
-                type: "win",
-                winner: game.winner,
-                winCombo: combo
-            })));
+            io.to(game.room).emit("win", { winner: game.board[a], winCombo: combo });
             return;
         }
     }
-
-    if (game.board.every(cell => cell !== null)) {
+    if (game.board.every((cell) => cell !== null)) {
         game.gameOver = true;
-        game.players.forEach(player => player.send(JSON.stringify({ type: "draw" })));
+        io.to(game.room).emit("draw", {});
     }
 }
 
-server.listen(3000, () => {
-    console.log(`Server started on port 3000`);
-});
-
-module.exports = app;
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
